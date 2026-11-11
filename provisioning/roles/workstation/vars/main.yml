@@ -1,0 +1,10 @@
+---
+# Constants documented for reference. The authoritative copies live inside
+# the provisioning scripts (make_secret.sh / solve.c); keep them in sync if
+# you change the storyline timestamp.
+#
+#   advertised file timestamp : 2018-04-17 23:08:49 UTC  (epoch 1524006529)
+#   brute-force window        : 7200 seconds before that timestamp
+#   known plaintext (16 bytes): 255044462d312e350a25d0d4c5d80a34
+#   level-3 IV                : 09080706050403020100a2b2c2d2e2f2
+#   level-2 IV                : 000102030405060708090a0b0c0d0e0f

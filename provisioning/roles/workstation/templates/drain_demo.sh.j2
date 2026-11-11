@@ -1,0 +1,17 @@
+#!/bin/bash
+# drain_demo.sh  --  Level 5 helper (/dev/random vs /dev/urandom).
+echo "entropy now: $(cat /proc/sys/kernel/random/entropy_avail) bits"
+echo
+echo ">> /dev/urandom NEVER blocks. 32 bytes, instantly:"
+timeout 3 sh -c 'head -c 32 /dev/urandom | od -An -tx1' || true
+echo
+echo ">> /dev/random is a BLOCKING device: when the entropy estimate hits"
+echo "   zero it stalls until the pool is refilled from physical events"
+echo "   (keyboard, mouse, disk, interrupts)."
+echo
+echo "   Think it through: if a server reads /dev/random to build a fresh"
+echo "   session key for every client that connects, an attacker who opens"
+echo "   many connections can keep the pool empty and STALL every legitimate"
+echo "   client -- a Denial-of-Service. That is the lesson of this level."
+echo
+echo "FLAG: {{ l5_flag }}"

@@ -1,0 +1,10 @@
+---
+# Provisioning entry point for the PRNG crypto-audit scenario.
+# Only the workstation is provisioned; the router uses its base image.
+
+- name: Configure the SEED workstation
+  hosts: workstation
+  become: true
+  gather_facts: true
+  roles:
+    - role: workstation

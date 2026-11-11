@@ -1,0 +1,21 @@
+# =====================================================================
+#  STATIC FALLBACK  --  use ONLY if APG / variant sandboxes are not
+#  available on your CyberRangeCZ instance.
+# =====================================================================
+# With APG you do NOT need this file: variables.yml generates a unique
+# value per sandbox automatically. This fallback instead fixes the values
+# for one build, so every student of that build shares the same flags.
+#
+# To still give ~30 students different flags WITHOUT APG, create one
+# sandbox definition per variant (or per small group) and drop a different
+# filled-in copy of this file (named all.yml) into each. The helper
+# tools/gen_static_variants.sh prints 30 ready-made value sets.
+#
+# Copy this file to  group_vars/all.yml  and replace the placeholders.
+
+l2_flag: "REPLACE_l2"
+l3_seed_offset: 1234          # any integer 0..7200
+l3_flag: "REPLACE_l3"
+l4_flag: "REPLACE_l4"
+l5_flag: "REPLACE_l5"
+l6_flag: "REPLACE_l6"

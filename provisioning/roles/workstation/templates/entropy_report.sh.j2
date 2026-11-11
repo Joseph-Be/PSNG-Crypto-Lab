@@ -1,0 +1,15 @@
+#!/bin/bash
+# entropy_report.sh  --  Level 4 helper.
+# Sample the kernel's entropy estimate and watch it move.
+echo "=== Kernel entropy estimate (/proc/sys/kernel/random/entropy_avail) ==="
+for i in $(seq 1 5); do
+    echo "  sample $i: $(cat /proc/sys/kernel/random/entropy_avail) bits available"
+    sleep 1
+done
+echo
+echo "Now run this and, WHILE it runs, move the mouse, type, or read a big"
+echo "file. Note which activity raises the number the most:"
+echo "    watch -n .1 cat /proc/sys/kernel/random/entropy_avail"
+echo
+echo "When you have observed the behaviour, submit the flag below."
+echo "FLAG: {{ l4_flag }}"

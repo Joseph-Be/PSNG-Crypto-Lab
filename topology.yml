@@ -1,0 +1,42 @@
+name: crypto-prng-audit
+
+# Single self-contained SEED workstation. Everything in the SEED "Pseudo
+# Random Number Generation" lab (compiling, brute-forcing, reading
+# /dev/urandom) happens on this one host, so one host per sandbox keeps the
+# pool light for ~30 concurrent students.
+hosts:
+  - name: workstation
+    base_box:
+      # NOTE: must match the image name in your OpenStack/Glance catalog.
+      image: seed-ubuntu-20.04
+      # NOTE: cloud-init provisioning user of your SEED image. Commonly
+      # 'ubuntu' or 'seed' -- verify with your image before deploying.
+      mgmt_user: ubuntu
+    flavor: m1.medium
+
+routers:
+  - name: workstation-router
+    base_box:
+      image: debian-12-x86_64
+      mgmt_user: debian
+    flavor: m1.small
+
+wan:
+  name: internet-connection
+  cidr: 100.100.100.0/24
+
+networks:
+  - name: workstation-net
+    cidr: 10.10.30.0/24
+
+net_mappings:
+  - host: workstation
+    network: workstation-net
+    ip: 10.10.30.5
+
+router_mappings:
+  - router: workstation-router
+    network: workstation-net
+    ip: 10.10.30.1
+
+groups: []

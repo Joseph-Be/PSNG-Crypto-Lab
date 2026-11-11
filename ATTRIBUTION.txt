@@ -1,0 +1,31 @@
+ATTRIBUTION
+===========
+
+Lab content
+-----------
+This scenario adapts the "Pseudo Random Number Generation Lab" from the
+SEED Labs project.
+  Copyright (c) 2018 Wenliang Du, Syracuse University.
+  Licensed under Creative Commons Attribution-NonCommercial-ShareAlike 4.0
+  International (CC BY-NC-SA 4.0).
+  https://seedsecuritylabs.org/   https://creativecommons.org/licenses/by-nc-sa/4.0/
+
+The task flow (weak time-seeded key generation, known-plaintext key guessing,
+kernel entropy measurement, /dev/random vs /dev/urandom, secure key
+generation) is derived from that lab. Per the ShareAlike term, this adaptation
+is distributed under the same CC BY-NC-SA 4.0 license (NonCommercial).
+
+Scenario structure
+------------------
+The sandbox-definition and training-definition structure follows the
+CyberRangeCZ Platform "junior-hacker" library scenario.
+  Cybersecurity Laboratory, Faculty of Informatics, Masaryk University.
+  Leading author: Miriam Galikova. Contributors: Valdemar Svabensky, Jan Vykopal.
+  Based on: https://gitlab.ics.muni.cz/muni-kypo-trainings/games/junior-hacker
+  Game design licensed under CC BY 4.0.
+
+Custom code
+-----------
+The C programs (genkey.c, keygen_seed.c, solve.c), the provisioning scripts
+and the helper tools were written for this scenario and are licensed under the
+MIT License (see LICENSE).

@@ -1,0 +1,209 @@
+{
+  "title": "Crypto Key Audit – Pseudo Random Number Generation",
+  "description": "A graded (20-point) hands-on lab based on the SEED 'Pseudo Random Number Generation' lab: audit an insecure time-seeded key generator, recover an encrypted document by brute-forcing the weak key, and learn to generate keys securely from /dev/urandom. Each sandbox has unique flags.",
+  "prerequisites": [
+    "Basic Linux command line",
+    "Compiling and running C programs with gcc",
+    "Idea of symmetric encryption (AES, keys, IV)"
+  ],
+  "outcomes": [
+    "Explain why seeding a PRNG with time() produces predictable cryptographic keys.",
+    "Perform a known-plaintext brute-force attack to recover a weak AES key.",
+    "Measure kernel entropy and explain /dev/random vs /dev/urandom, including a DoS risk.",
+    "Generate a cryptographically secure key from /dev/urandom."
+  ],
+  "state": "UNRELEASED",
+  "show_stepper_bar": true,
+  "levels": [
+    {
+      "title": "Introduction",
+      "level_type": "INFO_LEVEL",
+      "order": 0,
+      "estimated_duration": 0,
+      "minimal_possible_solve_time": null,
+      "content": "# General information: please read carefully\n\n* This is a **graded** lab worth **20 points** in total. Revealing hints or the solution costs points (each hint shows its own penalty).\n* **Every student's sandbox contains different flags.** Copying someone else's answer will not work.\n* Submit each flag **exactly** as recovered, without the `FLAG:` prefix or surrounding spaces.\n* You also hand in a written lab report (screenshots + explanations), as required by the practical assignment.\n* This lab is for educational purposes only. The story is fictitious.\n\n# Storyline\n\nYou are a junior security auditor. **HodlerCorp** has hired you after a scare: one of their engineers wrote an in-house utility, `genkey`, to produce the AES keys that protect the company's confidential files. Management wants to know a simple thing — are those keys actually unpredictable?\n\nYour job is to audit `genkey`, **prove** whether its keys can be guessed (by recovering a protected document), and then recommend how the keys *should* have been generated. Everything happens on the SEED Ubuntu workstation in your sandbox."
+    },
+    {
+      "title": "Get access",
+      "level_type": "ACCESS_LEVEL",
+      "order": 1,
+      "estimated_duration": 0,
+      "minimal_possible_solve_time": null,
+      "passkey": "start",
+      "cloud_content": "Connect to your workstation, then submit the answer **`start`**.\n\n### Sandbox access\n1. In the topology view on the right, right-click **`workstation`** and choose **Open GUI**.\n2. Log in with username **`seed`** and password **`dees`**.\n\nPrefer a terminal? You can also SSH to the workstation (it makes copy-pasting flags easier). See the [sandbox access documentation](https://docs.platform.cyberrange.cz/user-guide-advanced/sandboxes/sandbox-access/) for setup.\n\nEverything you need is on the **Desktop**.",
+      "local_content": "This sandbox has not been tested for use with a local sandbox."
+    },
+    {
+      "title": "Task 1 – The developer's shortcut",
+      "level_type": "TRAINING_LEVEL",
+      "order": 2,
+      "estimated_duration": 10,
+      "minimal_possible_solve_time": null,
+      "answer": null,
+      "answer_variable_name": "l2_flag",
+      "content": "Open a terminal on the workstation. On the Desktop you will find **`genkey.c`** — the exact program the HodlerCorp engineer used to make 128-bit keys. Read it carefully:\n\n```c\nprintf(\"%lld\\n\", (long long) time(NULL));\nsrand (time(NULL));          // <-- Line A\nfor (i = 0; i < KEYSIZE; i++) {\n    key[i] = rand() % 256;\n    printf(\"%.2x\", (unsigned char) key[i]);\n}\n```\n\nCompile and run it a few times:\n\n```\ngcc -o genkey genkey.c\n./genkey\n./genkey\n```\n\nNotice how the key is tied to the printed timestamp. Now **comment out Line A** (the `srand(...)` line only), recompile, and run it several more times. What happens to the key, and why?\n\nYou will see that with no `srand()`, the C library falls back to a **fixed default seed**, so the key comes out **identical every run**. The engineer left a scratch note on the Desktop, **`sample.enc`**, encrypted with AES-128-CBC using exactly that constant key. The IV is:\n\n```\nIV = 000102030405060708090a0b0c0d0e0f\n```\n\nReproduce the constant key, decrypt `sample.enc`, and read the note.\n\n**Flag:** the token printed after `FLAG:` inside the decrypted note.",
+      "solution": "With `srand()` removed, `rand()` uses the default seed `1`, giving the constant key `67c6697351ff4aec29cdbaabf2fbe346`. Decrypt the note:\n\n```\nopenssl enc -d -aes-128-cbc -nosalt \\\n  -K 67c6697351ff4aec29cdbaabf2fbe346 \\\n  -iv 000102030405060708090a0b0c0d0e0f \\\n  -in sample.enc\n```\n\nThe decrypted note ends with the per-sandbox flag token.",
+      "solution_penalized": true,
+      "hints": [
+        {
+          "title": "Which line controls the randomness?",
+          "content": "Line A — `srand(time(NULL))` — is the only thing seeding the generator. Comment out *just that line*, keep the `rand()` loop, recompile, and compare runs.",
+          "hint_penalty": 0.5,
+          "order": 0
+        },
+        {
+          "title": "Getting the key into openssl",
+          "content": "`./genkey` prints the key as 32 hex characters (ignore the first line — that is the timestamp). Pass it to `openssl` with `-K <hex>`, the IV with `-iv <hex>`, plus `-d -aes-128-cbc -nosalt`.",
+          "hint_penalty": 1,
+          "order": 1
+        }
+      ],
+      "incorrect_answer_limit": 10,
+      "attachments": [],
+      "max_score": 3,
+      "variant_answers": true,
+      "reference_solution": [],
+      "mitre_techniques": [],
+      "expected_commands": [],
+      "commands_required": false
+    },
+    {
+      "title": "Task 2 – Guessing the key",
+      "level_type": "TRAINING_LEVEL",
+      "order": 3,
+      "estimated_duration": 30,
+      "minimal_possible_solve_time": null,
+      "answer": null,
+      "answer_variable_name": "l3_flag",
+      "content": "This is the real audit. On the Desktop is **`secret_report.enc`** — a confidential PDF that HodlerCorp encrypted with a key straight out of `genkey` (so the key was seeded with `time(NULL)`). You are going to recover it with a **known-plaintext brute force**.\n\nWhat you know:\n\n* The file was created at **2018-04-17 23:08:49 UTC** (epoch **1524006529**). The key was therefore seeded somewhere in the **2-hour window before** that — a Unix-time seed in **[1523999329, 1524006529]** (7200 candidates).\n* It is a PDF, so its first 16 bytes are the predictable header:\n\n```\nplaintext (16 bytes) = 255044462d312e350a25d0d4c5d80a34\n```\n\n* It was encrypted with **aes-128-cbc**, and the IV is stored with the file (never secret):\n\n```\nIV = 09080706050403020100a2b2c2d2e2f2\n```\n\n* The first 16 bytes of **your** ciphertext (unique to your sandbox):\n\n```\nxxd -p -l 16 secret_report.enc\n```\n\nWrite a program that, for every candidate seed in the window, regenerates the key the way `genkey` does (`srand(seed)` then sixteen `rand()%256` bytes), encrypts the known plaintext block under AES-128-CBC with that IV, and compares the result to your first ciphertext block. When they match, you have the key. Then decrypt the whole file and read the report.\n\n> Tip: `date -u -d \"2018-04-17 23:08:49\" +%s` prints the epoch seconds, exactly as in the SEED lab.\n\n**Flag:** the token printed after `FLAG:` inside the decrypted report.",
+      "solution": "Brute force the 7200-second window. A C solver (OpenSSL EVP) is the canonical approach:\n\n* loop `seed` from 1523999329 to 1524006529\n* `srand(seed)`; build the 16-byte key with `rand()%256`\n* AES-128-CBC-encrypt the known plaintext block with the given IV\n* compare to the first 16 bytes of `secret_report.enc`; on a match, stop\n\nThen decrypt the whole file with the recovered key:\n\n```\nopenssl enc -d -aes-128-cbc -nosalt -K <recovered-key> \\\n  -iv 09080706050403020100a2b2c2d2e2f2 \\\n  -in secret_report.enc -out report.pdf\nstrings report.pdf | grep -i flag\n```\n\nA Python solver using `ctypes` to call libc `srand`/`rand` works equally well. The recovered key and the flag token are different for every student.",
+      "solution_penalized": true,
+      "hints": [
+        {
+          "title": "You already know part of the plaintext",
+          "content": "Every PDF-1.5 file starts with the same 16 bytes. You have one full plaintext block *and* its matching ciphertext block — enough to test any candidate key without decrypting the whole file.",
+          "hint_penalty": 1,
+          "order": 0
+        },
+        {
+          "title": "From a timestamp to a list of seeds",
+          "content": "`date -u -d \"2018-04-17 23:08:49\" +%s` gives 1524006529. The seed is an integer in [that-7200, that]. Loop over all 7201 values; for each, `srand(seed)` then build the 16-byte key with `rand()%256`.",
+          "hint_penalty": 1.5,
+          "order": 1
+        },
+        {
+          "title": "Testing a candidate key",
+          "content": "For each candidate key, AES-128-CBC-encrypt the known 16-byte plaintext with the given IV and compare to the first 16 ciphertext bytes (`xxd -p -l 16 secret_report.enc`). On a match, decrypt the full file and read the flag.",
+          "hint_penalty": 2,
+          "order": 2
+        }
+      ],
+      "incorrect_answer_limit": 10,
+      "attachments": [],
+      "max_score": 8,
+      "variant_answers": true,
+      "reference_solution": [],
+      "mitre_techniques": [],
+      "expected_commands": [],
+      "commands_required": false
+    },
+    {
+      "title": "Task 3 – How much randomness does the kernel have?",
+      "level_type": "TRAINING_LEVEL",
+      "order": 4,
+      "estimated_duration": 5,
+      "minimal_possible_solve_time": null,
+      "answer": null,
+      "answer_variable_name": "l4_flag",
+      "content": "Good keys need real entropy. Linux harvests it from physical events (key presses, mouse movement, disk and interrupt timing) and tracks an estimate you can read:\n\n```\ncat /proc/sys/kernel/random/entropy_avail\n```\n\nWatch it move in real time while you use the machine:\n\n```\nwatch -n .1 cat /proc/sys/kernel/random/entropy_avail\n```\n\nMove the mouse, type, read a large file, open a page — and note in your report which activity raises the estimate the most. When you have observed it, run the Desktop helper:\n\n```\n./entropy_report.sh\n```\n\n**Flag:** the token it prints after `FLAG:`.",
+      "solution": "`entropy_report.sh` samples `/proc/sys/kernel/random/entropy_avail` and prints the per-sandbox flag. In your report, note that interactive input (mouse, keyboard) and disk activity raise the estimate, whereas a predictable source such as the timer interrupt would not.",
+      "solution_penalized": true,
+      "hints": [
+        {
+          "title": "Where does the entropy estimate live?",
+          "content": "It is the file `/proc/sys/kernel/random/entropy_avail`. The helper `./entropy_report.sh` on the Desktop reads it and prints your flag.",
+          "hint_penalty": 0.5,
+          "order": 0
+        }
+      ],
+      "incorrect_answer_limit": 10,
+      "attachments": [],
+      "max_score": 2,
+      "variant_answers": true,
+      "reference_solution": [],
+      "mitre_techniques": [],
+      "expected_commands": [],
+      "commands_required": false
+    },
+    {
+      "title": "Task 4 – /dev/random, blocking, and a DoS",
+      "level_type": "TRAINING_LEVEL",
+      "order": 5,
+      "estimated_duration": 5,
+      "minimal_possible_solve_time": null,
+      "answer": null,
+      "answer_variable_name": "l5_flag",
+      "content": "Linux exposes the random pool through two device files with different behaviour:\n\n* **/dev/random** — a *blocking* device: when the entropy estimate runs out, reads **stall** until the pool refills.\n* **/dev/urandom** — *non-blocking*: it keeps producing output from the existing seed.\n\nExperiment (keep a `watch` on `entropy_avail` in a second terminal):\n\n```\ncat /dev/urandom | hexdump      # never stops\n```\n\nThen answer SEED's question in your report: *if a server reads /dev/random to generate a session key for every client, how could an attacker launch a Denial-of-Service against it?*\n\nThe Desktop helper demonstrates the behaviour and gives you the flag:\n\n```\n./drain_demo.sh\n```\n\n**Flag:** the token it prints after `FLAG:`.",
+      "solution": "Reading from /dev/random drains the entropy estimate, and the device blocks until the pool refills. A server that calls /dev/random for a session key per client can be stalled by an attacker who opens many connections and keeps the pool empty, denying service to legitimate clients. The recommendation is to use /dev/urandom. `./drain_demo.sh` prints the per-sandbox flag.",
+      "solution_penalized": true,
+      "hints": [
+        {
+          "title": "Blocking vs non-blocking",
+          "content": "Compare /dev/urandom (never blocks) with /dev/random (blocks when the entropy estimate hits zero). Keep `watch` on `entropy_avail` while you read from each.",
+          "hint_penalty": 0.5,
+          "order": 0
+        },
+        {
+          "title": "The attack",
+          "content": "If every client connection makes the server consume /dev/random, an attacker can keep the pool drained by flooding connections, stalling everyone. Run `./drain_demo.sh` for the flag.",
+          "hint_penalty": 1,
+          "order": 1
+        }
+      ],
+      "incorrect_answer_limit": 10,
+      "attachments": [],
+      "max_score": 3,
+      "variant_answers": true,
+      "reference_solution": [],
+      "mitre_techniques": [],
+      "expected_commands": [],
+      "commands_required": false
+    },
+    {
+      "title": "Task 5 – Generating keys the right way",
+      "level_type": "TRAINING_LEVEL",
+      "order": 6,
+      "estimated_duration": 10,
+      "minimal_possible_solve_time": null,
+      "answer": null,
+      "answer_variable_name": "l6_flag",
+      "content": "Finally, fix the developer's mistake. Instead of a time-seeded PRNG, read directly from the kernel CSPRNG. Here is the secure pattern for a 128-bit key:\n\n```c\n#define LEN 16\nunsigned char *key = malloc(LEN);\nFILE* r = fopen(\"/dev/urandom\", \"r\");\nfread(key, LEN, 1, r);\nfclose(r);\n```\n\n**Modify it to generate a 256-bit key** (256 bits = 32 bytes), print it as 64 hex characters, then compile and run it. Sanity-check the source's quality with `ent`:\n\n```\nhead -c 1M /dev/urandom > output.bin\nent output.bin        # expect ~7.99 bits/byte\n```\n\nWhen your program prints a 256-bit key, submit it to the verification oracle on your Desktop:\n\n```\n./verify_key <your-64-hex-key>\n# or:  ./your_program | ./verify_key\n```\n\n**Flag:** the token the oracle prints after `FLAG:` once it accepts a valid 256-bit key.",
+      "solution": "Change `LEN` to 32 and print 64 hex characters:\n\n```c\n#define LEN 32\nfor (int i = 0; i < LEN; i++) printf(\"%02x\", key[i]);\n```\n\nCompile, run, and pipe to the oracle:\n\n```\ngcc -o goodkey goodkey.c && ./goodkey | ./verify_key\n```\n\n`ent` on 1 MB of /dev/urandom reports about 7.99 bits/byte (near-ideal). The oracle checks the key is 64 hex characters and that /dev/urandom passes the entropy check, then prints the per-sandbox flag.",
+      "solution_penalized": true,
+      "hints": [
+        {
+          "title": "Which device, and how many bytes?",
+          "content": "Read from `/dev/urandom` (the non-blocking CSPRNG). 256 bits = 32 bytes, so set `LEN` to 32, read 32 bytes, and print each as `%02x` (64 hex characters total).",
+          "hint_penalty": 1,
+          "order": 0
+        },
+        {
+          "title": "Getting the flag",
+          "content": "Run `ent` on 1 MB from /dev/urandom to confirm ~7.99 bits/byte, then submit your 64-hex key: `./verify_key <key>`. It prints the flag once the length and entropy checks pass.",
+          "hint_penalty": 1.5,
+          "order": 1
+        }
+      ],
+      "incorrect_answer_limit": 10,
+      "attachments": [],
+      "max_score": 4,
+      "variant_answers": true,
+      "reference_solution": [],
+      "mitre_techniques": [],
+      "expected_commands": [],
+      "commands_required": false
+    }
+  ],
+  "estimated_duration": 60,
+  "variant_sandboxes": true
+}

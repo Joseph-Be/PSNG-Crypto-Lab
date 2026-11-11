@@ -1,0 +1,15 @@
+# build artefacts
+*.o
+*.out
+solve
+genkey
+goodkey
+keygen_seed
+output.bin
+*.enc
+
+# ansible
+*.retry
+
+# local static-fallback values (never commit real per-student flags)
+provisioning/group_vars/all.yml

@@ -1,0 +1,47 @@
+# =====================================================================
+#  APG variables  --  Automated Problem Generation (variant sandboxes)
+# =====================================================================
+# Each entry is generated to a UNIQUE value per sandbox (per student).
+# The values are injected into Ansible provisioning (referenced as
+# {{ variable_name }}) and planted into the workstation. The matching
+# training levels mark their correct answer as "variant" and point at
+# the variable name (answer_variable_name), so every student's flag is
+# different and answers cannot be shared.
+#
+# Lives at the ROOT of the sandbox definition (next to topology.yml).
+# Requires APG / "Generate variant sandboxes" to be enabled on your
+# CyberRangeCZ instance. If it is not, see provisioning/group_vars/
+# all.yml.example for the static fallback.
+
+# Level 2 -- token hidden in the constant-key sample file
+l2_flag:
+  type: password
+  length: 12
+
+# Level 3 -- which 1-second seed inside the 2-hour window this sandbox
+# used to generate the weak key (0..7200). Only varies the key; the flag
+# itself is l3_flag, planted inside the decrypted report.
+l3_seed_offset:
+  type: port
+  min: 1
+  max: 7200
+
+# Level 3 -- token hidden inside the confidential report
+l3_flag:
+  type: password
+  length: 16
+
+# Level 4 -- token printed by the entropy helper
+l4_flag:
+  type: password
+  length: 12
+
+# Level 5 -- token printed by the /dev/random demo helper
+l5_flag:
+  type: password
+  length: 12
+
+# Level 6 -- token released by the key-verification oracle
+l6_flag:
+  type: password
+  length: 16

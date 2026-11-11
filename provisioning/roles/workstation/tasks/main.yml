@@ -1,0 +1,112 @@
+---
+# =====================================================================
+#  PRNG Crypto-Audit  --  workstation provisioning  (SEED Ubuntu 20.04)
+# =====================================================================
+# Expects the following variables (from variables.yml via APG, or from
+# group_vars/all.yml in the static fallback):
+#   l2_flag  l3_seed_offset  l3_flag  l4_flag  l5_flag  l6_flag
+
+- name: Ensure build/crypto tools are present (SEED image already ships these)
+  package:
+    name:
+      - gcc
+      - openssl
+    state: present
+  ignore_errors: true          # keep provisioning working on an offline pool
+
+- name: Set a predictable password for the 'seed' GUI user
+  user:
+    name: seed
+    password: "{{ 'dees' | password_hash('sha512') }}"
+  ignore_errors: true
+
+- name: Ensure the Desktop directory exists
+  file:
+    path: /home/seed/Desktop
+    state: directory
+    owner: seed
+    group: seed
+    mode: '0755'
+
+- name: Create provisioning work directory
+  file:
+    path: /opt/prng-audit
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Install the student-facing vulnerable generator on the Desktop
+  copy:
+    src: genkey.c
+    dest: /home/seed/Desktop/genkey.c
+    owner: seed
+    group: seed
+    mode: '0644'
+
+- name: Stage provisioning-only key tooling (removed again at the end)
+  copy:
+    src: "{{ item }}"
+    dest: "/opt/prng-audit/{{ item }}"
+    owner: root
+    group: root
+    mode: '0700'
+  loop:
+    - keygen_seed.c
+    - make_sample.sh
+    - make_secret.sh
+
+- name: Compile the provisioning keygen (same glibc the student will use)
+  command: gcc -o /opt/prng-audit/keygen_seed /opt/prng-audit/keygen_seed.c
+  args:
+    creates: /opt/prng-audit/keygen_seed
+
+# ---- Level 2 : constant-key sample ----------------------------------
+- name: Build the Level 2 sample file
+  command: >
+    bash /opt/prng-audit/make_sample.sh
+    "{{ l2_flag }}"
+    /home/seed/Desktop/sample.enc
+    /opt/prng-audit/keygen_seed
+  args:
+    creates: /home/seed/Desktop/sample.enc
+
+# ---- Level 3 : per-sandbox encrypted confidential report ------------
+- name: Build the Level 3 confidential report
+  command: >
+    bash /opt/prng-audit/make_secret.sh
+    "{{ l3_seed_offset }}"
+    "{{ l3_flag }}"
+    /home/seed/Desktop/secret_report.enc
+    /opt/prng-audit/keygen_seed
+  args:
+    creates: /home/seed/Desktop/secret_report.enc
+
+- name: Fix ownership of the generated encrypted files
+  file:
+    path: "{{ item }}"
+    owner: seed
+    group: seed
+    mode: '0644'
+  loop:
+    - /home/seed/Desktop/sample.enc
+    - /home/seed/Desktop/secret_report.enc
+
+# ---- Level 4 / 5 / 6 : helper tools with per-sandbox flag baked in --
+- name: Install the entropy / randomness helper tools
+  template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    owner: seed
+    group: seed
+    mode: '0755'
+  loop:
+    - { src: 'entropy_report.sh.j2', dest: '/home/seed/Desktop/entropy_report.sh' }
+    - { src: 'drain_demo.sh.j2',     dest: '/home/seed/Desktop/drain_demo.sh' }
+    - { src: 'verify_key.j2',        dest: '/home/seed/Desktop/verify_key' }
+
+# ---- lock down : students must never see the seed, key, or scripts ---
+- name: Remove all provisioning-only artefacts
+  file:
+    path: /opt/prng-audit
+    state: absent

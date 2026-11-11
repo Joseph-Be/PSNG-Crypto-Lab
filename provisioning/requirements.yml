@@ -1,0 +1,6 @@
+---
+# No external Ansible roles are required by this scenario.
+#
+# If your site's CyberRangeCZ standard expects the common roles
+# (sandbox-logging, chrony, hosts-aliases, user-access), add them here and
+# wire them into playbook.yml the same way the stock library scenarios do.
