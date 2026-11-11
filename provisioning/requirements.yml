@@ -1,6 +1,19 @@
----
-# No external Ansible roles are required by this scenario.
-#
-# If your site's CyberRangeCZ standard expects the common roles
-# (sandbox-logging, chrony, hosts-aliases, user-access), add them here and
-# wire them into playbook.yml the same way the stock library scenarios do.
+- name: sandbox-logging
+  src: https://github.com/cyberrangecz/ansible-role-sandbox-logging.git
+  scm: git
+  version: v1.0.0
+
+- name: chrony
+  src: https://github.com/cyberrangecz/ansible-role-chrony.git
+  scm: git
+  version: 1.0.1
+
+- name: hosts-aliases
+  src: https://github.com/cyberrangecz/ansible-role-hosts-aliases.git
+  scm: git
+  version: 1.0.0
+
+- name: user-access
+  src: https://github.com/cyberrangecz/ansible-role-user-access.git
+  scm: git
+  version: v1.0.0
