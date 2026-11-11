@@ -7,10 +7,7 @@ name: crypto-prng-audit
 hosts:
   - name: workstation
     base_box:
-      # NOTE: must match the image name in your OpenStack/Glance catalog.
-      image: seed-ubuntu-20.04
-      # NOTE: cloud-init provisioning user of your SEED image. Commonly
-      # 'ubuntu' or 'seed' -- verify with your image before deploying.
+      image: seed
       mgmt_user: ubuntu
     flavor: m1.medium
 
